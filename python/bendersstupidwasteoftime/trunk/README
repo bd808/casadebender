@@ -4,3 +4,5 @@ http://bendersstupidwasteoftime.appspot.com
 
 Playing with python, django, facebook and the google app engine.
 
+Upload with: 
+  appcfg.py update `pwd`

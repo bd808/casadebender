@@ -12,6 +12,10 @@ from google.appengine.ext.webapp import util
 # from it.
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
+# Force Django to reload its settings.
+from django.conf import settings
+settings._target = None
+
 # Must set this env var *before* importing any part of Django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'settings'
 
