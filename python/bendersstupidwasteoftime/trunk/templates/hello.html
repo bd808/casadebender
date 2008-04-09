@@ -1,0 +1,10 @@
+{% extends "site-skin.html" %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<p>Hello, world.</p>
+{% if extra %}
+<p>{{ extra }}</p>
+{% else %}
+<p>That is all.</p>
+{% endif %}
+{% endblock %}
