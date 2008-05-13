@@ -1,0 +1,859 @@
+Index: test/run-tests.php
+===================================================================
+--- test/run-tests.php	(revision 365)
++++ test/run-tests.php	(working copy)
+@@ -69,6 +71,8 @@
+ $tasksSuite->addTestSuite(new ReflectionClass('PropertyTaskTest'));
+ 
+ 
++include_once 'phing/tasks/ImportTaskTest.php';
++$tasksSuite->addTestSuite(new ReflectionClass('ImportTaskTest'));
+  
+ $suite = new PHPUnit2_Framework_TestSuite('Phing Tests');
+ $suite->addTest($coreSuite);
+Index: test/etc/tasks/imports/imported.xml
+===================================================================
+--- test/etc/tasks/imports/imported.xml	(revision 0)
++++ test/etc/tasks/imports/imported.xml	(revision 0)
+@@ -0,0 +1,27 @@
++<?xml version="1.0"?>
++<project name="imported" default="" basedir=".">
++
++  <php function="dirname" returnProperty="imported.basedir">
++    <param value="${phing.file.imported}"/>
++  </php>
++  <property file="${imported.basedir}/imported.properties"/>
++
++  <target name="main">
++    <echo>${imported.echo}</echo>
++    <echo>This is ${phing.file.imported} main target.</echo>
++  </target>
++
++  <target name="imported">
++    <echo>phing.file.imported=${phing.file.imported}</echo>
++    <echo>imported.basedir=${imported.basedir}</echo>
++  </target>
++
++  <target name="flip" depends="flop">
++    <echo>This is ${phing.file.imported} flip target.</echo>
++  </target>
++  <target name="flop">
++    <echo>This is ${phing.file.imported} flop target.</echo>
++  </target>
++
++  <import file="imports/importedImport.xml"/>
++</project>
+
+Property changes on: test/etc/tasks/imports/imported.xml
+___________________________________________________________________
+Name: svn:keywords
+   + Id Author Date Revision HeadURL
+
+Index: test/etc/tasks/imports/importedImport.xml
+===================================================================
+--- test/etc/tasks/imports/importedImport.xml	(revision 0)
++++ test/etc/tasks/imports/importedImport.xml	(revision 0)
+@@ -0,0 +1,12 @@
++<?xml version="1.0"?>
++<project name="imported2" default="" basedir=".">
++
++  <target name="imported2">
++    <echo>This is ${phing.file.imported2} imported2 target.</echo>
++  </target>
++
++  <target name="main">
++    <echo>This is ${phing.file.imported2} main target.</echo>
++  </target>
++</project>
++
+
+Property changes on: test/etc/tasks/imports/importedImport.xml
+___________________________________________________________________
+Name: svn:keywords
+   + Id Author Date Revision HeadURL
+
+Index: test/etc/tasks/imports/imported.properties
+===================================================================
+--- test/etc/tasks/imports/imported.properties	(revision 0)
++++ test/etc/tasks/imports/imported.properties	(revision 0)
+@@ -0,0 +1 @@
++imported.echo=This comes from the imported.properties file
+Index: test/etc/tasks/importing.xml
+===================================================================
+--- test/etc/tasks/importing.xml	(revision 0)
++++ test/etc/tasks/importing.xml	(revision 0)
+@@ -0,0 +1,20 @@
++<?xml version="1.0"?>
++<project name="importing" default="" basedir=".">
++
++  <import file="imports/imported.xml"/>
++
++  <target name="main">
++    <echo>This is ${phing.file} main target.</echo>
++  </target>
++
++  <target name="cascade" depends="imported.main">
++    <echo>This is ${phing.file} cascade target.</echo>
++  </target>
++
++  <target name="flipflop" depends="flip">
++    <echo>This is ${phing.file} flipflop target.</echo>
++  </target>
++  <target name="flop">
++    <echo>This is ${phing.file} flop target.</echo>
++  </target>
++</project>
+Index: test/classes/phing/tasks/ImportTaskTest.php
+===================================================================
+--- test/classes/phing/tasks/ImportTaskTest.php	(revision 0)
++++ test/classes/phing/tasks/ImportTaskTest.php	(revision 0)
+@@ -0,0 +1,66 @@
++<?php
++
++/*
++ *  $Id$
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * This software consists of voluntary contributions made by many individuals
++ * and is licensed under the LGPL. For more information please see
++ * <http://phing.info>.
++ */
++ 
++require_once 'phing/BuildFileTest.php';
++
++/**
++ * @author Bryan Davis <bender@casadebender.com>
++ */
++class ImportTaskTest extends BuildFileTest { 
++        
++    public function setUp() { 
++        $this->configureProject(PHING_TEST_BASE . "/etc/tasks/importing.xml");
++    }
++
++    public function testOverloadedTarget () {
++      $this->executeTarget("main");
++      $this->assertInLogs("This is " . PHING_TEST_BASE . "/etc/tasks/importing.xml main target.");
++    }
++        
++    public function testImportedTarget () {
++      $this->executeTarget("imported");
++      $this->assertInLogs("phing.file.imported=" . PHING_TEST_BASE . "/etc/tasks/imports/imported.xml");
++      $this->assertInLogs("imported.basedir=" . PHING_TEST_BASE . "/etc/tasks/imports");
++    }
++
++    public function testImported2Target () {
++      $this->executeTarget("imported2");
++      $this->assertInLogs("This is " . PHING_TEST_BASE . "/etc/tasks/imports/importedImport.xml imported2 target.");
++    }
++        
++    public function testCascadeTarget () {
++      $this->executeTarget("cascade");
++      $this->assertInLogs("This comes from the imported.properties file");
++      $this->assertInLogs("This is " . PHING_TEST_BASE . "/etc/tasks/imports/imported.xml main target.");
++      $this->assertInLogs("This is " . PHING_TEST_BASE . "/etc/tasks/importing.xml cascade target.");
++    }
++
++    public function testFlipFlopTarget () {
++      // calls target in main that depends on target in import that depends on 
++      // target orverridden in main
++      $this->executeTarget("flipflop");
++      $this->assertInLogs("This is " . PHING_TEST_BASE . "/etc/tasks/importing.xml flop target.");
++      $this->assertInLogs("This is " . PHING_TEST_BASE . "/etc/tasks/imports/imported.xml flip target.");
++      $this->assertInLogs("This is " . PHING_TEST_BASE . "/etc/tasks/importing.xml flipflop target.");
++
++    }
++}
+Index: docs/phing_guide/book/chapters/appendixes/AppendixB-CoreTasks.html
+===================================================================
+--- docs/phing_guide/book/chapters/appendixes/AppendixB-CoreTasks.html	(revision 365)
++++ docs/phing_guide/book/chapters/appendixes/AppendixB-CoreTasks.html	(working copy)
+@@ -901,6 +901,90 @@
+ &lt;/if&gt;
+ </pre>
+ 
++<h2><a name="ImportTask"></a>ImportTask</h2>
++<p>Imports another build file into the current project.</p>
++<p>On execution it will read another Phing file into the same Project. 
++Functionally it is nearly the same as copy and pasting the imported file onto 
++the end of the importing file.</p>
++<h3>Target Overriding</h3>
++<p>If a target in the main file is also present in at least one of the imported files, the one from the main file takes precedence.</p>
++
++<p>So if I import for example a <em>docs/build.xml</em> file named 
++<strong>builddocs</strong>, that contains a "<strong>docs</strong>" target, I 
++can redefine it in my main buildfile and that is the one that will be called. 
++This makes it easy to keep the same target name, so that the overriding target 
++is still called by any other targets--in either the main or imported 
++buildfile(s)--for which it is a dependency, with a different implementation. 
++The target from <em>docs/build.xml</em> is made available by the name 
++"<strong>builddocs.docs</strong>". This enables the new implementation to call 
++the old target, thus enhancing it with tasks called before or after it.</p>
++<h3>Special Properties</h3>
++<p>Imported files are treated as they are present in the main buildfile. This makes it easy to understand, but it makes it impossible for them to reference files and resources relative to their path. Because of this, for every imported file, Phing adds a property that contains the path to the imported buildfile. With this path, the imported buildfile can keep resources and be able to reference them relative to its position.</p>
++
++<p>So if I import for example a <em>docs/build.xml</em> file named <strong>builddocs</strong>, I can get its path as <strong>phing.file.builddocs</strong>, similarly to the <strong>phing.file</strong> property of the main buildfile.</p>
++
++<p>Note that "builddocs" is not the filename, but the name attribute present in the imported project tag.</p>
++
++<p>If import file does not have a name attribute, the phing.file.projectname property will not be set.</p>
++<h3>Resolving Files Against the Imported File</h3>
++<p>Suppose your main build file called <code>importing.xml</code> imports a build file <code>imported.xml</code>, located anywhere on the file system, and <code>imported.xml</code> reads a set of properties from <code>imported.properties</code>:
++<pre>
++&lt;!-- importing.xml --&gt;
++&lt;project name=&quot;importing&quot; basedir=&quot;.&quot; default=&quot;...&quot;&gt;
++  &lt;import file=&quot;${path_to_imported}/imported.xml&quot;/&gt;
++&lt;/project&gt;
++
++&lt;!-- imported.xml --&gt;
++&lt;project name=&quot;imported&quot; basedir=&quot;.&quot; default=&quot;...&quot;&gt;
++  &lt;property file=&quot;imported.properties&quot;/&gt;
++&lt;/project&gt;
++</pre>
++
++<p>This snippet however will resolve <code>imported.properties</code> against the basedir of <code>importing.xml</code>, because the basedir of <code>imported.xml</code> is ignored by Phing. The right way to use <code>imported.properties</code> is:
++<pre>
++&lt;!-- imported.xml --&gt;
++&lt;project name=&quot;imported&quot; basedir=&quot;.&quot; default=&quot;...&quot;&gt;
++  &lt;php function=&quot;dirname&quot; returnProperty=&quot;imported.basedir&quot;&gt;
++    &lt;param value=&quot;${phing.file.imported}&quot;/&gt;
++  &lt;/php&gt;
++  &lt;property file=&quot;${imported.basedir}/imported.properties&quot;/&gt;
++&lt;/project&gt;
++</pre>
++<p>As explained above <code>${phing.file.imported}</code> stores the path of the build script, that defines the project called <strong>imported</strong>, (in short it stores the path to <em>imported.xml</em>) and &lt;php function="dirname"&gt; takes its directory. This technique also allows <em>imported.xml</em> to be used as a standalone file (without being imported in other project).</p>
++<h3>Example</h3>
++<pre>
++&lt;import file=&quot;path/to/build.xml&quot;/&gt;
++&lt;import file=&quot;path/to/build.xml&quot; optional=&quot;true&quot;/&gt;
++</pre>
++<h3>Attributes</h3>
++<table>
++  <thead>
++    <tr>
++      <th>Name</th>
++      <th>Type</th>
++      <th>Description</th>
++      <th>Default</th>
++      <th>Required</th>
++    </tr>
++  </thead>
++  <tbody>
++    <tr>
++      <td>file</td>
++      <td>String</td>
++      <td>The file to import.</td>
++      <td>n/a</td>
++      <td>Yes</td>
++    </tr>
++    <tr>
++      <td>optional</td>
++      <td>Boolean</td>
++      <td>If true, do not stop the build if the file does not exist.</td>
++      <td>false</td>
++      <td>No</td>
++    </tr>
++  </tbody>
++</table>
++
+ <h2><a name="IncludePathTask"></a>IncludePathTask</h2>
+ <p>Sets the PHP include_path configuration option for the duration of this phing run.</p>
+ <h3>Example</h3>
+Index: classes/phing/tasks/defaults.properties
+===================================================================
+--- classes/phing/tasks/defaults.properties	(revision 365)
++++ classes/phing/tasks/defaults.properties	(working copy)
+@@ -40,6 +40,7 @@
+ xslt=phing.tasks.system.XsltTask
+ if=phing.tasks.system.IfTask
+ warn=phing.tasks.system.WarnTask
++import=phing.tasks.system.ImportTask
+ 
+ ; "Core" contributed tasks
+ ; -- i.e. no taskdef needed.
+Index: classes/phing/tasks/system/ImportTask.php
+===================================================================
+--- classes/phing/tasks/system/ImportTask.php	(revision 0)
++++ classes/phing/tasks/system/ImportTask.php	(revision 0)
+@@ -0,0 +1,133 @@
++<?php
++/*
++ *  $Id$
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * This software consists of voluntary contributions made by many individuals
++ * and is licensed under the LGPL. For more information please see
++ * <http://phing.info>.
++ */
++
++require_once 'phing/Task.php';
++require_once 'phing/system/io/FileSystem.php';
++require_once 'phing/system/io/PhingFile.php';
++require_once 'phing/parser/ProjectConfigurator.php';
++
++/**
++ * Imports another build file into the current project.
++ *
++ * Targets and properties of the imported file can be overrridden 
++ * by targets and properties of the same name declared in the importing file. 
++ *
++ * The imported file will have a new synthetic property of 
++ * "phing.file.<projectname>" declared which gives the full path to the 
++ * imported file. Additionally each target in the imported file will be 
++ * declared twice: once with the normal name and once with "<projectname>." 
++ * prepended. The "<projectname>.<targetname>" synthetic targets allow the 
++ * importing file a mechanism to call the imported files targets as 
++ * dependencies or via the <phing> or <phingcall> task mechanisms.
++ *
++ * @author Bryan Davis <bender@casadebender.com>
++ * @version $Revision$
++ * @package phing.tasks.system
++ */
++class ImportTask extends Task {
++
++  /**
++   * @var FileSystem
++   */
++  protected $fs;
++
++  /**
++   * @var PhingFile
++   */
++  protected $file = null;
++
++  /**
++   * @var bool
++   */
++  protected $optional = false;
++
++  /**
++   * Initialize task.
++   * @return void
++   */
++  public function init () {
++    $this->fs = FileSystem::getFileSystem();
++  } //end init
++
++
++  /**
++   * Set the file to import.
++   * @param string $f Path to file
++   * @return void
++   */
++  public function setFile ($f) {
++    $this->file = $f;
++  }
++
++  /**
++   * Is this include optional?
++   * @param bool $opt If true, do not stop the build if the file does not 
++   * exist
++   * @return void
++   */
++  public function setOptional ($opt) {
++    $this->optional = $opt;
++  }
++
++  /**
++   * Parse a Phing build file and copy the properties, tasks, data types and 
++   * targets it defines into the current project.
++   *
++   * @return void
++   */
++  public function main () {
++    if (!isset($this->file)) {
++      throw new BuildException("Missing attribute 'file'");
++    }
++
++    $base = $this->project->getBasedir();
++    $file = new PhingFile($this->project->getBasedir(), $this->file);
++    if (!$file->exists()) {
++      $msg = "Unable to find build file: {$this->file->getName()}";
++      if ($this->optional) {
++        $this->log($msg . '... skipped');
++      } else {
++        throw new BuildException($msg);
++      }
++    }
++
++    $ctx = $this->project->getReference("phing.parsing.context");
++    $cfg = $ctx->getConfigurator();
++    if (null !== $cfg && $cfg->isParsing()) {
++      // because there isn't a top level implicit target in phing like there is 
++      // in Ant 1.6, we will be called as soon as our xml is parsed. This isn't 
++      // really what we want to have happen. Instead we will register ourself 
++      // with the parse context to be called at the end of the current file's 
++      // parse phase.
++      $cfg->delayTaskUntilParseEnd($this);
++
++    } else {
++      // Import xml file into current project scope
++      // Since this is delayed until after the importing file has been 
++      // processed, the properties and targets of this new file may not take 
++      // effect if they have alreday been defined in the outer scope.
++      $this->log("Importing configuration from {$file->getName()}", Project::MSG_VERBOSE);
++      ProjectConfigurator::configureProject($this->project, $file);
++      $this->log("Configuration imported.", Project::MSG_VERBOSE);
++    }
++  } //end main
++
++} //end ImportTask
+Index: classes/phing/parser/ProjectConfigurator.php
+===================================================================
+--- classes/phing/parser/ProjectConfigurator.php	(revision 365)
++++ classes/phing/parser/ProjectConfigurator.php	(working copy)
+@@ -24,6 +24,8 @@
+ include_once 'phing/BuildException.php';
+ include_once 'phing/system/lang/FileNotFoundException.php';
+ include_once 'phing/system/io/PhingFile.php';
++include_once 'phing/parser/PhingXMLContext.php';
++include_once 'phing/IntrospectionHelper.php';
+ 
+ /**
+  * The datatype handler class.
+@@ -44,8 +46,25 @@
+     
+     public $buildFile;
+     public $buildFileParent;
+-        
++
++    /** Targets in current file */
++    private $currentTargets;
++
++    /** Synthetic target that will be called at the end to the parse phase */
++    private $parseEndTarget;
++
++    /** Name of the current project */
++    private $currentProjectName;
++
++    private $isParsing = true;
++
+     /**
++     * Indicates whether the project tag attributes are to be ignored
++     * when processing a particular build file.
++     */
++    private $ignoreProjectTag = false;
++
++    /**
+      * Static call to ProjectConfigurator. Use this to configure a
+      * project. Do not use the new operator.
+      *
+@@ -71,9 +90,67 @@
+         $this->project = $project;
+         $this->buildFile = new PhingFile($buildFile->getAbsolutePath());
+         $this->buildFileParent = new PhingFile($this->buildFile->getParent());
++        $this->currentTargets = array();
++        $this->parseEndTarget = new Target();
+     }
+ 
+     /**
++     * find out the build file
++     * @return  the build file to which the xml context belongs
++     */
++    public function getBuildFile() {
++        return $this->buildFile;
++    }
++
++    /**
++     * find out the parent build file of this build file
++     * @return the parent build file of this build file
++     */
++    public function getBuildFileParent() {
++        return $this->buildFileParent;
++    }
++
++    /**
++     * find out the current project name
++     * @return current project name
++     */
++    public function getCurrentProjectName() {
++        return $this->currentProjectName;
++    }
++
++    /**
++     * set the name of the current project
++     * @param name name of the current project
++     */
++    public function setCurrentProjectName($name) {
++        $this->currentProjectName = $name;
++    }
++
++    /**
++     * tells whether the project tag is being ignored
++     * @return whether the project tag is being ignored
++     */
++    public function isIgnoringProjectTag() {
++        return $this->ignoreProjectTag;
++    }
++
++    /**
++     *  sets the flag to ignore the project tag
++     * @param flag to ignore the project tag
++     */
++    public function setIgnoreProjectTag($flag) {
++        $this->ignoreProjectTag = $flag;
++    }
++
++    public function &getCurrentTargets () {
++      return $this->currentTargets;
++    }
++
++    public function isParsing () {
++      return $this->isParsing;
++    }
++
++    /**
+      * Creates the ExpatParser, sets root handler and kick off parsing
+      * process.
+      *
+@@ -82,7 +159,26 @@
+      * @access private
+      */
+     protected function parse() {
+-        try {
++      try {
++        // get parse context
++        $ctx = $this->project->getReference("phing.parsing.context");
++        if (null == $ctx) {
++          // make a new context and register it with project
++          $ctx = new PhingXMLContext($this->project);
++          $this->project->addReference("phing.parsing.context", $ctx);
++        }
++
++        //record this parse with context
++        $ctx->addImport($this->buildFile);
++
++        if (count($ctx->getImportStack()) > 1) {
++          // this is an imported file
++          // modify project tag parse behavior
++          $this->setIgnoreProjectTag(true);
++        }
++        // push action onto global stack
++        $ctx->startConfigure($this);
++
+             $reader = new BufferedReader(new FileReader($this->buildFile));
+             $parser = new ExpatParser($reader);
+             $parser->parserSetOption(XML_OPTION_CASE_FOLDING,0);
+@@ -90,12 +186,29 @@
+             $this->project->log("parsing buildfile ".$this->buildFile->getName(), Project::MSG_VERBOSE);
+             $parser->parse();
+             $reader->close();
++
++            // mark parse phase as completed
++            $this->isParsing = false;
++            // execute delayed tasks
++            $this->parseEndTarget->main();
++            // pop this action from the global stack
++            $ctx->endConfigure();
+         } catch (Exception $exc) {
+             throw new BuildException("Error reading project file", $exc);
+         }
+     }
+ 
+     /**
++     * Delay execution of a task until after the current parse phase has 
++     * completed.
++     *
++     * @param Task $task Task to execute after parse
++     */
++    public function delayTaskUntilParseEnd ($task) {
++      $this->parseEndTarget->addTask($task);
++    }
++
++    /**
+      * Configures an element and resolves eventually given properties.
+      *
+      * @param  object  the element to configure
+Index: classes/phing/parser/PhingXMLContext.php
+===================================================================
+--- classes/phing/parser/PhingXMLContext.php	(revision 0)
++++ classes/phing/parser/PhingXMLContext.php	(revision 0)
+@@ -0,0 +1,81 @@
++<?php
++/*
++ * $Id$
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * This software consists of voluntary contributions made by many individuals
++ * and is licensed under the LGPL. For more information please see
++ * <http://phing.info>.
++ */
++
++/**
++ * Track the current state of the Xml parse operation.
++ *
++ * @author    Bryan Davis <bender@casadebender.com>
++ * @version   $Revision$ $Date$
++ * @access    public
++ * @package   phing.parser
++ */
++class PhingXMLContext {
++
++    /**
++     * Constructor
++     * @param $project the project to which this antxml context belongs to
++     */
++    public function __construct ($project) {
++      $this->project = $project;
++    }
++
++    /** The project to configure. */
++    private $project;
++
++    private $configurators = array();
++
++    public function startConfigure ($cfg) {
++      $this->configurators[] = $cfg;
++    }
++
++    public function endConfigure () {
++      array_pop($this->configurators);
++    }
++
++    public function getConfigurator () {
++      $l = count($this->configurators);
++      if (0 == $l) {
++        return null;
++      } else {
++        return $this->configurators[$l - 1];
++      }
++    }
++
++    /** Impoerted files */
++    private $importStack = array();
++
++    public function addImport ($file) {
++      $this->importStack[] = $file;
++    }
++
++    public function getImportStack () {
++      return $this->importStack;
++    }
++
++    /**
++     * find out the project to which this context belongs
++     * @return project
++     */
++    public function getProject() {
++        return $this->project;
++    }
++
++} //end PhingXMLContext
+Index: classes/phing/parser/ProjectHandler.php
+===================================================================
+--- classes/phing/parser/ProjectHandler.php	(revision 365)
++++ classes/phing/parser/ProjectHandler.php	(working copy)
+@@ -89,38 +89,50 @@
+                 throw new ExpatParseException("Unexpected attribute '$key'");
+             }
+         }
+-        if ($def === null) {
+-            throw new ExpatParseException("The default attribute of project is required");
++        // these things get done no matter what
++        if (null != $name) {
++          $canonicalName = self::canonicalName($name);
++          $this->configurator->setCurrentProjectName($canonicalName);
++          $project->setUserProperty("phing.file.{$canonicalName}",
++              (string) $this->configurator->getBuildFile());
+         }
+-        $project->setDefaultTarget($def);
+ 
+-        if ($name !== null) {
++        if (!$this->configurator->isIgnoringProjectTag()) {
++          if ($def === null) {
++            throw new ExpatParseException(
++                "The default attribute of project is required");
++          }
++          $project->setDefaultTarget($def);
++
++          if ($name !== null) {
+             $project->setName($name);
+             $project->addReference($name, $project);
+-        }
+ 
+-        if ($id !== null) {
++          }
++
++          if ($id !== null) {
+             $project->addReference($id, $project);
+-        }
+-        
+-        if ($desc !== null) {
++          }
++
++          if ($desc !== null) {
+             $project->setDescription($desc);
+-        }        
++          }        
+ 
+-        if ($project->getProperty("project.basedir") !== null) {
++          if ($project->getProperty("project.basedir") !== null) {
+             $project->setBasedir($project->getProperty("project.basedir"));
+-        } else {
++          } else {
+             if ($baseDir === null) {
+-                $project->setBasedir($buildFileParent->getAbsolutePath());
++              $project->setBasedir($buildFileParent->getAbsolutePath());
+             } else {
+-                // check whether the user has specified an absolute path
+-                $f = new PhingFile($baseDir);
+-                if ($f->isAbsolute()) {
+-                    $project->setBasedir($baseDir);
+-                } else {
+-                    $project->setBaseDir($project->resolveFile($baseDir, $buildFileParent));
+-                }
++              // check whether the user has specified an absolute path
++              $f = new PhingFile($baseDir);
++              if ($f->isAbsolute()) {
++                $project->setBasedir($baseDir);
++              } else {
++                $project->setBaseDir($project->resolveFile($baseDir, $buildFileParent));
++              }
+             }
++          }
+         }
+     }
+ 
+@@ -149,5 +161,9 @@
+ 			$tf->init($name, $attrs);
+         }
+     }
++
++    static function canonicalName ($name) {
++      return preg_replace('/\W/', '_', strtolower($name));
++    }
+ }
+ 
+Index: classes/phing/parser/TargetHandler.php
+===================================================================
+--- classes/phing/parser/TargetHandler.php	(revision 365)
++++ classes/phing/parser/TargetHandler.php	(working copy)
+@@ -108,22 +108,53 @@
+         // shorthand
+         $project = $this->configurator->project;
+ 
++        // check to see if this target is a dup within the same file
++        if (isset($this->configurator->getCurrentTargets[$name])) {
++          throw new BuildException("Duplicate target: $targetName",  
++              $this->parser->getLocation());
++        }
++
+         $this->target = new Target();
+         $this->target->setName($name);
+         $this->target->setIf($ifCond);
+         $this->target->setUnless($unlessCond);
+         $this->target->setDescription($description);
+-
+-        $project->addTarget($name, $this->target);
+-
+-        if ($id !== null && $id !== "") {
+-            $project->addReference($id, $this->target);
+-        }
+         // take care of dependencies
+         if (strlen($depends) > 0) {
+             $this->target->setDepends($depends);
+         }
+ 
++        $usedTarget = false;
++        // check to see if target with same name is already defined
++        $projectTargets = $project->getTargets();
++        if (isset($projectTargets[$name])) {
++          $project->log("Already defined in main or a previous import, " .
++            "ignore {$name}", Project::MSG_VERBOSE);
++        } else {
++          $project->addTarget($name, $this->target);
++          if ($id !== null && $id !== "") {
++            $project->addReference($id, $this->target);
++          }
++          $usedTarget = true;
++        }
++
++        if ($this->configurator->isIgnoringProjectTag() && 
++            $this->configurator->getCurrentProjectName() != null && 
++            strlen($this->configurator->getCurrentProjectName()) != 0) {
++          // In an impored file (and not completely
++          // ignoring the project tag)
++          $newName = $this->configurator->getCurrentProjectName() . "." . $name;
++          if ($usedTarget) {
++            // clone needs to make target->children a shared reference
++            $newTarget = clone $this->target;
++          } else {
++            $newTarget = $this->target;
++          }
++          $newTarget->setName($newName);
++          $ct = $this->configurator->getCurrentTargets();
++          $ct[$newName] = $newTarget;
++          $project->addTarget($newName, $newTarget);
++        }
+     }
+ 
+     /**
+Index: classes/phing/parser/Location.php
+===================================================================
+--- classes/phing/parser/Location.php	(revision 365)
++++ classes/phing/parser/Location.php	(working copy)
+@@ -69,4 +69,8 @@
+         }
+         return (string) $buf;
+     }
++
++    function __toString () {
++      return $this->toString();
++    }
+ }
+Index: classes/phing/Project.php
+===================================================================
+--- classes/phing/Project.php	(revision 365)
++++ classes/phing/Project.php	(working copy)
+@@ -535,7 +538,7 @@
+             $this->typedefs[$typeName] = $typeClass;
+             $this->log("  +User datatype: $typeName ($typeClass)", Project::MSG_DEBUG);
+         } else {
+-            $this->log("Type $name ($class) already registerd, skipping", Project::MSG_VERBOSE);
++            $this->log("Type $typeName ($typeClass) already registerd, skipping", Project::MSG_VERBOSE);
+         }
+     }
+ 
+@@ -555,6 +558,10 @@
+         $this->log("  +Target: $targetName", Project::MSG_DEBUG);
+         $target->setProject($this);
+         $this->targets[$targetName] = $target;
++
++        $ctx = $this->getReference("phing.parsing.context");
++        $current = $ctx->getConfigurator()->getCurrentTargets();
++        $current[$targetName] = $target;
+     }
+ 
+     function getTargets() {

@@ -1,0 +1,292 @@
+Index: test/run-tests.php
+===================================================================
+--- test/run-tests.php	(revision 365)
++++ test/run-tests.php	(working copy)
+@@ -57,6 +57,8 @@
+ 
+ include_once 'phing/tasks/TypedefTaskTest.php';
+ $tasksSuite->addTestSuite(new ReflectionClass('TypedefTaskTest'));
++include_once 'phing/tasks/TaskdefTaskTest.php';
++$tasksSuite->addTestSuite(new ReflectionClass('TaskdefTaskTest'));
+ 
+ 
+ // Conditions
+Index: test/etc/tasks/taskdef.xml
+===================================================================
+--- test/etc/tasks/taskdef.xml	(revision 0)
++++ test/etc/tasks/taskdef.xml	(revision 0)
+@@ -0,0 +1,56 @@
++<?xml version="1.0"?>
++
++<project name="test" basedir="." default="invalid">
++
++  <target name="invalid">
++    <fail>This file should only be run via a testcase</fail>
++  </target>
++
++  <target name="empty">
++    <taskdef />
++  </target>
++
++  <target name="noClassname">
++    <taskdef name="dummy" />
++  </target>
++
++  <target name="noName">
++    <taskdef classname="example.tasks.TaskdefTestSimpleTask"/>
++  </target>
++
++  <target name="classNotFound">
++    <taskdef name="" classname="oops"/>
++  </target>
++
++  <path id="testclasses">
++    <pathelement dir="../../classes" />
++  </path>
++
++  <taskdef name="global" classname="example.tasks.TaskdefTestSimpleTask">
++    <classpath refid="testclasses" />
++  </taskdef>
++
++  <target name="testGlobal">
++    <global id="global">
++      <echo message="testGlobal echo"/>
++    </global>
++  </target>
++
++  <target name="testLocal">
++    <taskdef name="local" classname="example.tasks.TaskdefTestSimpleTask">
++      <classpath refid="testclasses" />
++    </taskdef>
++    <local id="local" />
++  </target>
++
++  <target name="testFile">
++    <taskdef file="${phing.file}/taskdef.properties">
++      <classpath refid="testclasses" />
++    </taskdef>
++    <tdfile id="tdfile">
++      <echo message="testTdfile echo"/>
++    </tdfile>
++    <tdfile2 id="tdfile2"/>
++  </target>
++
++</project>
+Index: test/etc/tasks/taskdef.properties
+===================================================================
+--- test/etc/tasks/taskdef.properties	(revision 0)
++++ test/etc/tasks/taskdef.properties	(revision 0)
+@@ -0,0 +1,2 @@
++tdfile=example.tasks.TaskdefTestSimpleTask
++tdfile2=example.tasks.TaskdefTestSimpleTask
+Index: test/classes/phing/tasks/TaskdefTaskTest.php
+===================================================================
+--- test/classes/phing/tasks/TaskdefTaskTest.php	(revision 0)
++++ test/classes/phing/tasks/TaskdefTaskTest.php	(revision 0)
+@@ -0,0 +1,79 @@
++<?php
++/*
++ *  $Id$
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * This software consists of voluntary contributions made by many individuals
++ * and is licensed under the LGPL. For more information please see
++ * <http://phing.info>.
++ */
++ 
++require_once 'phing/BuildFileTest.php';
++
++/**
++ * @version $Revision$
++ */
++class TaskdefTaskTest extends BuildFileTest { 
++        
++    public function setUp() { 
++        $this->configureProject(PHING_TEST_BASE . "/etc/tasks/taskdef.xml");
++    }
++    
++    public function testEmpty() { 
++        $this->expectBuildException("empty", "required argument not specified");
++    }
++
++    public function testNoName() { 
++        $this->expectBuildException("noName", "required argument not specified");
++    }
++
++    public function testNoClassname() { 
++        $this->expectBuildException("noClassname", "required argument not specified");
++    }
++
++    public function testClassNotFound() { 
++      try {
++        $this->expectBuildException("classNotFound", "classname specified doesn't exist");
++      } catch (ConfigurationException $e) {
++        //ignored
++      }
++    }
++
++    public function testGlobal() {
++        $this->expectLog("testGlobal", "simpletask: testGlobal echo");
++        $refs = $this->project->getReferences();
++        $ref = $refs["global"];
++        $this->assertNotNull("ref is not null", $ref);
++        $this->assertEquals("TaskdefTestSimpleTask", get_class($ref));
++    }
++
++    public function testLocal() {
++        $this->expectLog("testLocal", "Task local will be handled by class example.tasks.TaskdefTestSimpleTask");
++        $refs = $this->project->getReferences();
++        $ref = $refs["local"];
++        $this->assertNotNull("ref is not null", $ref);
++        $this->assertEquals("TaskdefTestSimpleTask", get_class($ref));
++    }
++
++    public function tesFile() {
++        $this->expectLog("testFile", "simpletask: testTdfile echo");
++        $refs = $this->project->getReferences();
++        $ref = $refs["tdfile"];
++        $this->assertNotNull("ref is not null", $ref);
++        $this->assertEquals("TaskdefTestSimpleTask", get_class($ref));
++        $ref = $refs["tdfile2"];
++        $this->assertNotNull("ref is not null", $ref);
++        $this->assertEquals("TaskdefTestSimpleTask", get_class($ref));
++    }
++}
+Index: test/classes/example/tasks/TaskdefTestSimpleTask.php
+===================================================================
+--- test/classes/example/tasks/TaskdefTestSimpleTask.php	(revision 365)
++++ test/classes/example/tasks/TaskdefTestSimpleTask.php	(working copy)
+@@ -35,7 +35,7 @@
+     }
+     
+     public function main() {
+-        $this->log("simpletask: " . $echo->message, Project::MSG_INFO);
++      $this->log("simpletask: " . $this->echo->message, Project::MSG_INFO);
+     }
+ 
+ }
+Index: docs/phing_guide/book/chapters/appendixes/AppendixB-CoreTasks.html
+===================================================================
+--- docs/phing_guide/book/chapters/appendixes/AppendixB-CoreTasks.html	(revision 365)
++++ docs/phing_guide/book/chapters/appendixes/AppendixB-CoreTasks.html	(working copy)
+@@ -1490,6 +1574,11 @@
+ &lt;!-- Includes the Task &quot;RebootTask&quot; from &quot;user/sometasks&quot; somewhere inside
+      the $PHP_CLASSPATH --&gt;
+ &lt;taskdef classname=&quot;user.sometasks.RebootTask&quot; name=&quot;reboot&quot; /&gt;
++
++&lt;!-- Includes all tasks from the property file. Each line in the property 
++file defines a task in the format: name=path.to.Task --&gt;
++&lt;taskdef file=&quot;/path/to/mytasks.properties&quot; /&gt;
++
+ </pre>
+ <h3>Attributes</h3>
+ <table>
+@@ -1510,7 +1599,7 @@
+         The path to the class that defines the TaskClass.
+       </td>
+       <td>n/a</td>
+-      <td>Yes</td>
++      <td>Yes, unless the <code>file</code> attribute has been specified.</td>
+     </tr>
+     <tr>
+       <td>name</td>
+@@ -1521,8 +1610,17 @@
+         the task imported here with <code>&lt;validate&gt;</code>.
+       </td>
+       <td>n/a</td>
+-      <td>Yes</td>
++      <td>Yes, unless the <code>file</code> attribute has been specified.</td>
+     </tr>
++    <tr>
++      <td>file</td>
++      <td>String</td>
++      <td>
++      Name of the file to load definitions from.
++      </td>
++      <td>n/a</td>
++      <td>No</td>
++    </tr>
+ 	<tr>
+       <td>classpath</td>
+       <td>String</td>
+Index: classes/phing/tasks/system/TaskdefTask.php
+===================================================================
+--- classes/phing/tasks/system/TaskdefTask.php	(revision 365)
++++ classes/phing/tasks/system/TaskdefTask.php	(working copy)
+@@ -21,6 +21,7 @@
+  */
+  
+ require_once 'phing/Task.php';
++include_once 'phing/system/io/PhingFile.php';
+ 
+ /**
+  * Register a task for use within a buildfile.
+@@ -68,6 +69,12 @@
+      * Refid to already defined classpath
+      */
+     private $classpathId;
++
++    /**
++     * Name of file to load multiple definitions from.
++     * @var string
++     */
++    private $typeFile;
+     
+     /**
+      * Set the classpath to be used when searching for component being defined
+@@ -116,12 +123,41 @@
+         $this->classname = $class;
+     }
+     
++    /**
++     * Sets the file of definitionas to use to use.
++     * @param string $file
++     */
++    public function setFile($file) {
++        $this->typeFile = $file;
++    }
++    
+     /** Main entry point */
+     public function main() {
+-        if ($this->name === null || $this->classname === null) {
++        if ($this->typeFile === null && 
++            ($this->name === null || $this->classname === null)) {
+             throw new BuildException("You must specify name and class attributes for <taskdef>.");
+         }
+-        $this->log("Task " . $this->name . " will be handled by class " . $this->classname, Project::MSG_VERBOSE);
+-        $this->project->addTaskDefinition($this->name, $this->classname, $this->classpath);
++        if ($this->typeFile == null) {
++            $this->log("Task " . $this->name . " will be handled by class " . $this->classname, Project::MSG_VERBOSE);
++            $this->project->addTaskDefinition($this->name, $this->classname, $this->classpath);
++        } else {
++            try { // try to load taskdefs given in file
++                $props = new Properties();
++                $in = new PhingFile((string) $this->typeFile);
++
++                if ($in === null) {
++                    throw new BuildException("Can't load task list {$this->typeFile}");
++                }
++                $props->load($in);
++
++                $enum = $props->propertyNames();
++                foreach($enum as $key) {
++                    $value = $props->getProperty($key);
++                    $this->project->addTaskDefinition($key, $value, $this->classpath);
++                }
++            } catch (IOException $ioe) {
++                throw new BuildException("Can't load task list {$this->typeFile}");
++            }
++        }
+     }
+ }

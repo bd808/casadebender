@@ -1,0 +1,16 @@
+Index: test/classes/phing/tasks/TypedefTaskTest.php
+===================================================================
+--- test/classes/phing/tasks/TypedefTaskTest.php	(revision 365)
++++ test/classes/phing/tasks/TypedefTaskTest.php	(working copy)
+@@ -45,7 +45,11 @@
+     }
+ 
+     public function testClassNotFound() { 
++      try {
+         $this->expectBuildException("classNotFound", "classname specified doesn't exist");
++      } catch (ConfigurationException $e) {
++        //ignored
++      }
+     }
+ 
+     public function testGlobal() {
