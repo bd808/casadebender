@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2008 Bryan Davis <bender@casadebender.com>
+# Copyright 2008 Bryan Davis <casadebender+pil@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ Some time later I found a `django snippet`_ by *dc* that I borrowed the
 IcoImagePlugin, BmpImagePlugin, PngImagePlugin and other files from PIL.
 
 Icon format references:
-  * http://en.wikipedia.org/wiki/ICO_(icon_image_file_format)
+  * http://en.wikipedia.org/wiki/ICO_(file_format)
   * http://msdn.microsoft.com/en-us/library/ms997538.aspx
 
 Example icon to test with `down.ico`_
