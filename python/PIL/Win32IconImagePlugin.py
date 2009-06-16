@@ -41,7 +41,7 @@ Example icon to test with `down.ico`_
 
 .. _Image-SIG http://mail.python.org/pipermail/image-sig/2008-May/004986.html
 .. _django snippet http://www.djangosnippets.org/snippets/1287/
-.. down.ico_ http://www.axialis.com/tutorials/iw/down.ico
+.. _down.ico http://www.axialis.com/tutorials/iw/down.ico
 """
 
 import logging
