@@ -1,0 +1,15 @@
+#summary Alternate PIL plugin for dealing with Microsoft .ico files.
+#labels Featured
+
+= Win32IconImagePlugin =
+
+Alternate PIL plugin for dealing with Microsoft ICO image files. Handles XOR
+transparency masks, XP style 8bit alpha channels and Vista style PNG image
+parts.
+
+
+= Details =
+
+While working on a project with favicons for websites I had a need to composite Windows ico files to PNG images using python. I soon found out that [http://www.pythonware.com/products/pil/index.htm PIL] had only the most rudimentary support for handling the ICO format.
+
+This PIL.ImageFile implementation is my current solution for this problem. It builds on several samples that I found around the net. Karsten Hiddemann posted [http://mail.python.org/pipermail/image-sig/2008-May/004986.html a hint on Image-SIG] that got me started on solving this problem by showing how to turn the AND mask data into an alpha mask. I used information [http://en.wikipedia.org/wiki/ICO_(file_format) from] [http://msdn.microsoft.com/en-us/library/ms997538.aspx several] [http://www.codeproject.com/KB/cs/IconLib.aspx sources] to get PNG icon frames working. The last challenge was figuring out how to get the alpha channel from XP style 32bpp frames to work correctly in PIL.
