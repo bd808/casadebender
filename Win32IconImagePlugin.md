@@ -1,0 +1,69 @@
+# Win32IconImagePlugin #
+
+Alternate PIL plugin for dealing with Microsoft ICO image files. Handles XOR
+transparency masks, XP style 8bit alpha channels and Vista style PNG image
+parts.
+
+## Details ##
+
+While working on a project with favicons for websites, I had a need to composite Windows ico files to PNG images using python. I soon found out that [PIL](http://www.pythonware.com/products/pil/index.htm) had only the most rudimentary support for handling the ICO format. PIL can read ICO files which contain [DIB](http://en.wikipedia.org/wiki/Device-independent_bitmap) images, but doesn't support any transparency levels or the newer Vista style ICO files with embedded PNG components.
+
+This seemed like it should have been a solved problem, but at the time (October 2008) the best advice I could find was to open the .ico file twice, once with PIL to get the basic bitmap data and again as a raw file to extract the transparency mask. Not only is this clunky, it doesn't address the PNG issue or the WinXP 32bpp DIB components which have a full 8bit alpha channel.
+
+The solution I present here handles all of these cases. It is capable of opening an ICO file, allowing the user to see size of the various images contained in the file, and selecting a given image by size to expose as a PIL.Image for further manipulation. Supported ICO image formats:
+  * PNG
+  * 32bpp DIB with 8bpp alpha channel
+  * 24bpp, 8bpp, 4bpp, 2bpp with 1bpp transparency mask
+
+## Install ##
+
+Download [the latest version of Win32IconImagePlugin.py](http://casadebender.googlecode.com/svn/python/PIL/Win32IconImagePlugin.py) and put it somewhere in your PYTHON\_PATH. You'll have to `import Win32IconImagePlugin` after you import PIL in your program to get the filter registered.
+
+
+## Usage ##
+```
+>>> import urllib2
+>>> icofile = open("down.ico", "wb")
+>>> icofile.write(urllib2.urlopen("http://www.axialis.com/tutorials/iw/down.ico").read())
+>>> icofile.close()
+
+>>> import PIL.Image
+>>> import Win32IconImagePlugin
+>>> ico = PIL.Image.open("down.ico")
+>>> ico.size
+(256, 256)
+>>> ico.show()
+# OS dependent display of 256x256 PNG image from ico resource
+>>> print ico.info['sizes']
+set([(16, 16), (48, 48), (256, 256), (32, 32)])
+>>> ico.size = (16, 16)
+>>> ico.show()
+# OS dependent display of 16x16 DIB image from ico resource
+>>> flipped = ico.transpose(PIL.Image.FLIP_TOP_BOTTOM)
+>>> flipped.show()
+# OS dependent display of 16x16 DIB image with arrow pointing up instead of down
+```
+
+## Acknowledgments ##
+
+This PIL.ImageFile implementation builds on several samples that I found around the net. Karsten Hiddemann posted [a hint on Image-SIG](http://mail.python.org/pipermail/image-sig/2008-May/004986.html) that got me started on solving this problem by showing how to turn the AND mask data into an alpha mask. I used information [from](http://en.wikipedia.org/wiki/ICO_(file_format)) [several](http://msdn.microsoft.com/en-us/library/ms997538.aspx) [sources](http://www.codeproject.com/KB/cs/IconLib.aspx) to get PNG icon frames working. Sometime after I developed my first version I found [dc's version on Django Snippets](http://www.djangosnippets.org/snippets/1287/) which clued me into using a much more compact parsing scheme. The last challenge was figuring out how to get the alpha channel from XP style 32bpp frames to work correctly in PIL. As you can probably tell by the code in that part of the file, I figured that out for myself.
+
+For more info on the ICO file format, check out these resources:
+  * http://en.wikipedia.org/wiki/ICO_(file_format)
+  * http://msdn.microsoft.com/en-us/library/ms997538.aspx
+  * http://www.axialis.com/tutorials/tutorial-vistaicons.html (source of my example ico)
+  * http://www.codeproject.com/KB/cs/IconLib.aspx
+
+## License ##
+Copyright 2008 Bryan Davis <casadebender+pil@gmail.com>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+> http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
